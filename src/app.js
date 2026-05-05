@@ -23,6 +23,7 @@ const ARENA_CACHE_AGE = 12 * 60 * 60 * 1000;
 const LOAD_SIZE = 8;
 const ARENA_PAGE_SIZE = 10;
 const ARENA_MIN_CACHE_ITEMS = 30;
+const SHOULD_SKIP_ARTIC_IMAGES = isLikelyMobileViewport();
 
 const RADIO_STATIONS = [
   {
@@ -173,6 +174,8 @@ const fallbackArtworks = [
   },
   ...ngaSeeds,
 ];
+
+const classicFallbackArtworks = SHOULD_SKIP_ARTIC_IMAGES ? ngaSeeds : fallbackArtworks;
 
 let likes = readLikes();
 
@@ -439,7 +442,7 @@ async function loadMoreClassicArt() {
 
   try {
     const batches = await Promise.allSettled([
-      fetchArtic(),
+      ...(SHOULD_SKIP_ARTIC_IMAGES ? [] : [fetchArtic()]),
       fetchCleveland(),
       fetchMet(),
       fetchNgaSeeds(),
@@ -454,7 +457,7 @@ async function loadMoreClassicArt() {
     );
 
     if (unique.length === 0 && state.items.length === 0) {
-      renderArtworks("classic", fallbackArtworks);
+      renderArtworks("classic", classicFallbackArtworks);
     } else {
       renderArtworks("classic", unique);
     }
@@ -463,7 +466,7 @@ async function loadMoreClassicArt() {
   } catch (error) {
     console.error(error);
     if (state.items.length === 0) {
-      renderArtworks("classic", fallbackArtworks);
+      renderArtworks("classic", classicFallbackArtworks);
     }
     setStatus("Offline examples");
   } finally {
@@ -477,6 +480,7 @@ async function prepareArenaFeed(forceRefresh = false) {
 
   const cached = readArenaCache();
   const cachedItems = getUsableArenaItems(cached?.items || []);
+  const offlineItems = getArenaOfflineItems();
   if (!forceRefresh && cachedItems.length) {
     state.allItems = randomizeArenaItems(cachedItems);
     renderNextArenaBatch();
@@ -515,7 +519,7 @@ async function prepareArenaFeed(forceRefresh = false) {
     const normalized = weaveChannels(topChannels.flatMap((channel) => channel.items));
     const nextItems = normalized.length
       ? randomizeArenaItems(normalized)
-      : randomizeArenaItems(cachedItems);
+      : randomizeArenaItems(cachedItems.length ? cachedItems : offlineItems);
     if (nextItems.length) {
       writeArenaCache(nextItems, topChannels);
     }
@@ -526,20 +530,31 @@ async function prepareArenaFeed(forceRefresh = false) {
       renderNextArenaBatch();
       setArenaStatus();
     } else if (!state.items.length) {
-      setStatus("Loading");
+      showArenaOfflineItems();
     }
   } catch (error) {
     console.warn("Are.na ingest failed", error);
     if (!state.items.length) {
-      state.allItems = randomizeArenaItems(cachedItems);
+      state.allItems = randomizeArenaItems(cachedItems.length ? cachedItems : offlineItems);
       if (state.allItems.length) {
         renderNextArenaBatch();
         setArenaStatus();
       } else {
-        setStatus("Loading");
+        showArenaOfflineItems();
       }
     }
   }
+}
+
+function showArenaOfflineItems() {
+  feedState.arena.allItems = getArenaOfflineItems();
+  if (renderNextArenaBatch()) {
+    setArenaStatus();
+    return;
+  }
+
+  removeLoader(feedState.arena.element);
+  setStatus(activeFeedName === "arena" ? "Are.na offline" : undefined);
 }
 
 async function refreshArenaFeed() {
@@ -805,6 +820,14 @@ function renderArtworkCard(artwork) {
   const sourceLink = card.querySelector(".source-link");
 
   card.dataset.artworkId = artwork.id;
+  image.addEventListener(
+    "load",
+    () => {
+      const isPortrait = image.naturalHeight > image.naturalWidth * 1.18;
+      card.classList.toggle("is-portrait-artwork", isPortrait);
+    },
+    { once: true },
+  );
   image.src = artwork.imageUrl;
   image.alt = artwork.alt || `${artwork.title} by ${artwork.artist}`;
   title.textContent = artwork.title || "Untitled";
@@ -819,6 +842,12 @@ function renderArtworkCard(artwork) {
   card.addEventListener("dblclick", () => toggleLike(artwork, likeButton, true));
 
   return card;
+}
+
+function isLikelyMobileViewport() {
+  const coarsePointer = window.matchMedia?.("(hover: none) and (pointer: coarse)")?.matches;
+  const narrowViewport = window.matchMedia?.("(max-width: 700px)")?.matches;
+  return Boolean(coarsePointer && narrowViewport);
 }
 
 function toggleLike(artwork, button, forceLike = false) {
@@ -1118,6 +1147,10 @@ function readArenaCache() {
 
 function getUsableArenaItems(items) {
   return dedupe(items).filter((item) => !isArenaFallbackItem(item));
+}
+
+function getArenaOfflineItems() {
+  return randomizeArenaItems(arenaFallbackItems);
 }
 
 function isArenaFallbackItem(item) {
