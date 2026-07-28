@@ -980,7 +980,7 @@ a {
 
   .topbar {
     top: 32px;
-    width: min(100% - 96px, 1240px);
+    width: calc(100% - 96px);
     min-height: 96px;
     column-gap: 12px;
   }
@@ -991,6 +991,10 @@ a {
     left: 50%;
     width: 420px;
     transform: translateX(-50%);
+  }
+
+  .board-button {
+    padding: 0;
   }
 
   .brand small {
@@ -1010,7 +1014,7 @@ a {
   }
 
   .action-rail {
-    right: 40px;
+    right: 43px;
     bottom: 48px;
     gap: 24px;
   }
