@@ -5,7 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#12120f" />
     <title>AW N.P.C.P.F</title>
-    <link rel="stylesheet" href="./styles.css?v=20260505b" />
+    <link rel="icon" type="image/png" href="./assets/icons/awiconfilled.png" />
+    <link rel="preconnect" href="https://images.are.na" crossorigin />
+    <link rel="preconnect" href="https://api.are.na" crossorigin />
+    <link rel="preconnect" href="https://www.artic.edu" crossorigin />
+    <link rel="preconnect" href="https://openaccess-cdn.clevelandart.org" crossorigin />
+    <link rel="preconnect" href="https://images.metmuseum.org" crossorigin />
+    <link rel="stylesheet" href="./styles.css?v=20260728a" />
   </head>
   <body>
     <main class="app-shell">
@@ -40,13 +46,13 @@
 
       <nav class="topbar" aria-label="Primary navigation">
         <button class="icon-button" id="refreshButton" type="button" title="New mix" aria-label="New mix">
-          <img src="./assets/ui/refreshicon.svg?v=20260505b" alt="" aria-hidden="true" />
+          <img src="./assets/ui/refreshicon.svg?v=20260728a" alt="" aria-hidden="true" />
         </button>
         <button class="icon-button" id="musicButton" type="button" title="Music" aria-label="Start music" aria-pressed="false">
-          <img src="./assets/ui/musicicon.svg?v=20260505b" alt="" aria-hidden="true" />
+          <img src="./assets/ui/musicicon.svg?v=20260728a" alt="" aria-hidden="true" />
         </button>
         <button class="icon-button" id="radioRandomButton" type="button" title="Random radio station" aria-label="Random radio station">
-          <img src="./assets/ui/shuffleicon.svg?v=20260505b" alt="" aria-hidden="true" />
+          <img src="./assets/ui/shuffleicon.svg?v=20260728a" alt="" aria-hidden="true" />
         </button>
         <div class="brand" aria-label="Mood Scroll">
           <strong class="brand-logo-text">AW N.P.C.P.F</strong>
@@ -58,7 +64,7 @@
           <span class="era-option" data-era="arena">Contemporary</span>
         </div>
         <button class="icon-button board-button" id="openBoardButton" type="button" title="Board" aria-label="Open board">
-          <img src="./assets/ui/aw_boardicon.svg?v=20260505b" alt="" aria-hidden="true" />
+          <img src="./assets/ui/aw_boardicon.svg?v=20260728a" alt="" aria-hidden="true" />
           <strong id="likeCount">0</strong>
         </button>
       </nav>
@@ -85,6 +91,8 @@
           <p class="empty-board" id="emptyBoard">Tap the icon to save works here.</p>
         </section>
       </aside>
+
+      <p class="key-hints" aria-hidden="true">&larr;&rarr; switch feed &middot; &uarr;&darr; scroll &middot; R radio</p>
 
       <audio id="ambientAudio" preload="none"></audio>
     </main>
@@ -115,6 +123,6 @@
       </article>
     </template>
 
-    <script type="module" src="./src/app.js?v=20260505c"></script>
+    <script type="module" src="./src/app.js?v=20260728a"></script>
   </body>
 </html>

@@ -106,7 +106,7 @@ let hasStartedExperience = false;
 
 const sourceState = {
   artic: { page: randomInt(1, 80), label: "Art Institute of Chicago" },
-  cleveland: { skip: randomInt(0, 25000), label: "Cleveland Museum of Art" },
+  cleveland: { skip: randomInt(0, 18000), label: "Cleveland Museum of Art" },
   met: { cursor: 0, ids: [], label: "The Met" },
   nga: { cursor: 0, label: "National Gallery of Art" },
 };
@@ -178,6 +178,7 @@ const fallbackArtworks = [
 const classicFallbackArtworks = SHOULD_SKIP_ARTIC_IMAGES ? ngaSeeds : fallbackArtworks;
 
 let likes = readLikes();
+const discardedArtworkIds = new Set();
 
 init();
 
@@ -497,19 +498,7 @@ async function prepareArenaFeed(forceRefresh = false) {
 
   try {
     const channels = await discoverArenaChannels();
-    const channelResults = [];
-
-    for (const channel of channels.slice(0, 32)) {
-      await delay(90);
-      try {
-        const result = await fetchAndScoreArenaChannel(channel);
-        if (result) {
-          channelResults.push(result);
-        }
-      } catch (error) {
-        console.warn("Could not fetch Are.na channel", channel.slug, error);
-      }
-    }
+    const channelResults = await collectArenaChannels(channels);
 
     const topChannels = channelResults
       .filter((channel) => channel.imageDensity > 0.6 && channel.totalBlocks > 20)
@@ -572,13 +561,18 @@ async function discoverArenaChannels() {
     discovered.set(slug, { slug, title: slug, length: 0 });
   });
 
-  for (const query of shuffle(SEARCH_QUERIES)) {
-    await delay(110);
-    const page = randomInt(1, 3);
-    const payload = await fetchJson(
-      `https://api.are.na/v2/search/channels?q=${encodeURIComponent(query)}&per=8&page=${page}`,
-    );
-    (payload.channels || []).forEach((channel) => {
+  const queries = shuffle(SEARCH_QUERIES).slice(0, 5);
+  const searches = await Promise.allSettled(
+    queries.map((query) =>
+      fetchJson(
+        `https://api.are.na/v2/search/channels?q=${encodeURIComponent(query)}&per=8&page=${randomInt(1, 3)}`,
+      ),
+    ),
+  );
+
+  searches.forEach((search) => {
+    if (search.status !== "fulfilled") return;
+    (search.value.channels || []).forEach((channel) => {
       if (channel.slug && !channel["nsfw?"] && channel.length > 10) {
         discovered.set(channel.slug, {
           slug: channel.slug,
@@ -587,9 +581,35 @@ async function discoverArenaChannels() {
         });
       }
     });
-  }
+  });
 
   return [...discovered.values()].slice(0, 56);
+}
+
+async function collectArenaChannels(channels, targetCount = 12, batchSize = 4) {
+  const results = [];
+  const queue = channels.slice(0, 32);
+
+  while (queue.length && results.length < targetCount) {
+    const batch = queue.splice(0, batchSize);
+    const settled = await Promise.allSettled(
+      batch.map((channel) => fetchAndScoreArenaChannel(channel)),
+    );
+
+    settled.forEach((entry, index) => {
+      if (entry.status === "fulfilled" && entry.value) {
+        results.push(entry.value);
+      } else if (entry.status === "rejected") {
+        console.warn("Could not fetch Are.na channel", batch[index].slug, entry.reason);
+      }
+    });
+
+    if (queue.length && results.length < targetCount) {
+      await delay(120);
+    }
+  }
+
+  return results;
 }
 
 async function fetchAndScoreArenaChannel(channel) {
@@ -801,14 +821,42 @@ function renderArtworks(feedName, nextArtworks) {
 
   const fragment = document.createDocumentFragment();
   nextArtworks.forEach((artwork) => {
+    if (discardedArtworkIds.has(artwork.id)) return;
     state.items.push(artwork);
-    fragment.append(renderArtworkCard(artwork));
+    fragment.append(renderArtworkCard(artwork, feedName));
   });
   state.element.append(fragment);
   observeEnd(feedName);
 }
 
-function renderArtworkCard(artwork) {
+function getImageCandidates(artwork) {
+  const candidates = [artwork.imageUrl];
+
+  if (artwork.id?.startsWith("artic-") && artwork.imageUrl?.includes("/full/843,/")) {
+    candidates.push(artwork.imageUrl.replace("/full/843,/", "/full/600,/"));
+  }
+
+  if (artwork.thumbnailUrl) {
+    candidates.push(artwork.thumbnailUrl);
+  }
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function discardArtworkCard(feedName, card, artwork) {
+  const state = feedState[feedName];
+  console.warn("Removing artwork with unloadable image", artwork.id);
+  discardedArtworkIds.add(artwork.id);
+  state.items = state.items.filter((item) => item.id !== artwork.id);
+  card.remove();
+  observeEnd(feedName);
+
+  if (state.items.length < 4 && !state.isLoading) {
+    state.loadMore();
+  }
+}
+
+function renderArtworkCard(artwork, feedName) {
   const card = template.content.firstElementChild.cloneNode(true);
   const image = card.querySelector(".art-image");
   const title = card.querySelector("h2");
@@ -820,15 +868,23 @@ function renderArtworkCard(artwork) {
   const sourceLink = card.querySelector(".source-link");
 
   card.dataset.artworkId = artwork.id;
-  image.addEventListener(
-    "load",
-    () => {
-      const isPortrait = image.naturalHeight > image.naturalWidth * 1.18;
-      card.classList.toggle("is-portrait-artwork", isPortrait);
-    },
-    { once: true },
-  );
-  image.src = artwork.imageUrl;
+
+  const candidates = getImageCandidates(artwork);
+  let candidateIndex = 0;
+  image.addEventListener("load", () => {
+    const isPortrait = image.naturalHeight > image.naturalWidth * 1.18;
+    card.classList.toggle("is-portrait-artwork", isPortrait);
+  });
+  image.addEventListener("error", () => {
+    candidateIndex += 1;
+    if (candidateIndex < candidates.length) {
+      image.src = candidates[candidateIndex];
+      return;
+    }
+    discardArtworkCard(feedName, card, artwork);
+  });
+  image.decoding = "async";
+  image.src = candidates[0];
   image.alt = artwork.alt || `${artwork.title} by ${artwork.artist}`;
   title.textContent = artwork.title || "Untitled";
   artist.textContent = artwork.artist || artwork.attribution || "Unknown artist";
@@ -897,12 +953,22 @@ function renderBoard() {
     card.rel = "noreferrer";
     card.setAttribute("aria-label", `Open ${item.title || "work"} at the source`);
     card.innerHTML = `
-      <img alt="${escapeHtml(item.title)}" src="${item.thumbnailUrl || item.imageUrl}" loading="lazy" />
+      <img alt="${escapeHtml(item.title)}" src="${escapeHtml(item.thumbnailUrl || item.imageUrl)}" loading="lazy" />
       <div>
         <strong>${escapeHtml(item.title || "Untitled")}</strong>
         <span>${escapeHtml(item.artist || item.source || "")}</span>
       </div>
     `;
+
+    const thumb = card.querySelector("img");
+    thumb.addEventListener("error", () => {
+      if (item.imageUrl && thumb.src !== item.imageUrl) {
+        thumb.src = item.imageUrl;
+        return;
+      }
+      thumb.style.visibility = "hidden";
+    });
+
     fragment.append(card);
   });
   boardGrid.append(fragment);
@@ -1130,7 +1196,15 @@ function readLikes() {
 }
 
 function writeLikes() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(likes));
+  safeSetItem(STORAGE_KEY, JSON.stringify(likes));
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn("Could not persist to localStorage", key, error);
+  }
 }
 
 function readArenaCache() {
@@ -1158,7 +1232,7 @@ function isArenaFallbackItem(item) {
 }
 
 function writeArenaCache(items, channels) {
-  localStorage.setItem(
+  safeSetItem(
     ARENA_CACHE_KEY,
     JSON.stringify({
       createdAt: Date.now(),
@@ -1180,18 +1254,25 @@ function updateLikeCount() {
 
 function resetSourceState() {
   sourceState.artic.page = randomInt(1, 80);
-  sourceState.cleveland.skip = randomInt(0, 25000);
+  sourceState.cleveland.skip = randomInt(0, 18000);
   sourceState.met.cursor = 0;
   sourceState.met.ids = [];
   sourceState.nga.cursor = 0;
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
+async function fetchJson(url, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`);
+    }
+    return await response.json();
+  } finally {
+    window.clearTimeout(timer);
   }
-  return response.json();
 }
 
 function dedupe(items) {
@@ -1253,7 +1334,12 @@ function average(values) {
 }
 
 function shuffle(items) {
-  return [...items].sort(() => Math.random() - 0.5);
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(0, index);
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
 }
 
 function randomInt(min, max) {
