@@ -59,10 +59,6 @@ const RADIO_STATIONS = [
     streams: ["https://kaaosradio.fi:8001/chip"],
   },
   {
-    name: "AudioBook Radio",
-    streams: ["https://audiobookradio.out.airtime.pro/audiobookradio_a"],
-  },
-  {
     name: "Retreat Radio",
     streams: ["https://retreatradio.out.airtime.pro/retreatradio_b"],
   },
