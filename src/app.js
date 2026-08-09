@@ -67,10 +67,6 @@ const RADIO_STATIONS = [
     streams: ["https://retreatradio.out.airtime.pro/retreatradio_b"],
   },
   {
-    name: "Experimental Madrid",
-    streams: ["https://streamer.radio.co/sd6131729c/listen"],
-  },
-  {
     name: "Ancient FM",
     streams: ["https://mediaserv73.live-streams.nl:18058/stream"],
   },
