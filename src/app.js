@@ -109,7 +109,20 @@ const sourceState = {
   cleveland: { skip: randomInt(0, 18000), label: "Cleveland Museum of Art" },
   met: { cursor: 0, ids: [], label: "The Met" },
   nga: { cursor: 0, label: "National Gallery of Art" },
+  smk: { total: null, label: "SMK, Copenhagen" },
+  vam: { maxPage: 30, label: "Victoria and Albert Museum" },
 };
+
+const VAM_QUERIES = [
+  "painting",
+  "poster",
+  "textile",
+  "ceramics",
+  "photograph",
+  "print",
+  "jewellery",
+  "furniture",
+];
 
 const feedState = {
   classic: {
@@ -446,6 +459,8 @@ async function loadMoreClassicArt() {
       ...(SHOULD_SKIP_ARTIC_IMAGES ? [] : [fetchArtic()]),
       fetchCleveland(),
       fetchMet(),
+      fetchSmk(),
+      fetchVam(),
       fetchNgaSeeds(),
     ]);
 
@@ -809,6 +824,63 @@ async function fetchMet() {
     }));
 }
 
+async function fetchSmk() {
+  const state = sourceState.smk;
+  const maxOffset = Math.max((state.total ?? 16000) - LOAD_SIZE, 0);
+  const offset = randomInt(0, maxOffset);
+  const url = `https://api.smk.dk/api/v1/art/search/?keys=*&filters=[has_image:true],[public_domain:true]&offset=${offset}&rows=${LOAD_SIZE}`;
+  const payload = await fetchJson(url);
+
+  if (Number.isFinite(payload.found) && payload.found > 0) {
+    state.total = payload.found;
+  }
+
+  return (payload.items || [])
+    .filter((item) => item.object_number && (item.image_iiif_id || item.image_native || item.image_thumbnail))
+    .map((item) => ({
+      id: `smk-${item.object_number}`,
+      title: cleanLine(item.titles?.[0]?.title) || "Untitled",
+      artist: item.artist?.[0] || item.production?.[0]?.creator || "Unknown artist",
+      date: item.production_date?.[0]?.period || "",
+      medium: item.techniques?.[0] || "Artwork",
+      source: state.label,
+      sourceUrl: item.frontend_url || `https://open.smk.dk/en/artwork/image/${item.object_number}`,
+      imageUrl: item.image_iiif_id
+        ? `${item.image_iiif_id}/full/!1200,1200/0/default.jpg`
+        : item.image_native || item.image_thumbnail,
+      thumbnailUrl: item.image_thumbnail,
+      license: "CC0",
+    }));
+}
+
+async function fetchVam() {
+  const state = sourceState.vam;
+  const term = VAM_QUERIES[randomInt(0, VAM_QUERIES.length - 1)];
+  const page = randomInt(1, state.maxPage);
+  const url = `https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(term)}&images_exist=1&page=${page}&page_size=${LOAD_SIZE}`;
+  const payload = await fetchJson(url);
+
+  const pages = payload.info?.pages;
+  if (Number.isFinite(pages) && pages > 0) {
+    state.maxPage = Math.min(pages, 250);
+  }
+
+  return (payload.records || [])
+    .filter((record) => record.systemNumber && record._primaryImageId)
+    .map((record) => ({
+      id: `vam-${record.systemNumber}`,
+      title: cleanLine(record._primaryTitle) || record.objectType || "Untitled",
+      artist: record._primaryMaker?.name || "Unknown maker",
+      date: record._primaryDate || "",
+      medium: [record.objectType, record._primaryPlace].filter(Boolean).join(", "),
+      source: state.label,
+      sourceUrl: `https://collections.vam.ac.uk/item/${record.systemNumber}`,
+      imageUrl: `https://framemark.vam.ac.uk/collections/${record._primaryImageId}/full/!1200,1200/0/default.jpg`,
+      thumbnailUrl: record._images?._primary_thumbnail,
+      license: "© Victoria and Albert Museum",
+    }));
+}
+
 async function fetchNgaSeeds() {
   const item = ngaSeeds[sourceState.nga.cursor % ngaSeeds.length];
   sourceState.nga.cursor += 1;
@@ -834,6 +906,10 @@ function getImageCandidates(artwork) {
 
   if (artwork.id?.startsWith("artic-") && artwork.imageUrl?.includes("/full/843,/")) {
     candidates.push(artwork.imageUrl.replace("/full/843,/", "/full/600,/"));
+  }
+
+  if (artwork.imageUrl?.includes("/full/!1200,1200/")) {
+    candidates.push(artwork.imageUrl.replace("/full/!1200,1200/", "/full/!800,800/"));
   }
 
   if (artwork.thumbnailUrl) {

@@ -8,6 +8,8 @@ This project currently uses keyless, browser-friendly sources first, so the app 
 - Art Institute of Chicago: public API plus IIIF image service. The app filters for public domain works with images.
 - Cleveland Museum of Art: Open Access API with CC0 records and image URLs. The app filters `cc0=1` and `has_image=1`.
 - The Metropolitan Museum of Art: Collection API requires no key and returns Open Access public-domain image URLs.
+- SMK, Statens Museum for Kunst (National Gallery of Denmark): keyless open API with per-work public-domain flags. The app filters `has_image:true` and `public_domain:true` and loads images through SMK's IIIF service, so every SMK work shown is CC0.
+- Victoria and Albert Museum: keyless Collections API v2 with IIIF images. The app filters `images_exist=1`. Note: V&A images are free for non-commercial use under the V&A website terms, not CC0, so cards are labelled with a V&A copyright line instead.
 - Are.na: public API only, no HTML scraping. The app discovers candidate channels from search terms, filters image-heavy channels, caches the normalized image feed locally for 12 hours, and treats image licenses as unknown unless a source explicitly says otherwise.
 - SomaFM: live background radio streams. This is commercial-free, listener-supported radio, suitable for non-commercial prototyping. The app randomizes between Digitalis, SF 10-33, n5MD Radio, and Synphaera Radio, using official 128 kbps MP3 direct streams with alternate SomaFM servers as fallback.
 
@@ -24,6 +26,8 @@ This project currently uses keyless, browser-friendly sources first, so the app 
 - https://api.artic.edu/docs
 - https://openaccess-api.clevelandart.org/
 - https://metmuseum.github.io/
+- https://api.smk.dk/api/v1/docs
+- https://developers.vam.ac.uk/guide/v2/welcome.html
 - https://data.rijksmuseum.nl/about/
 - https://www.si.edu/openaccess/devtools
 - https://www.europeana.eu/en/apis
