@@ -12,6 +12,7 @@ This project currently uses keyless, browser-friendly sources first, so the app 
 - Victoria and Albert Museum: keyless Collections API v2 with IIIF images. The app filters `images_exist=1`. Note: V&A images are free for non-commercial use under the V&A website terms, not CC0, so cards are labelled with a V&A copyright line instead.
 - Are.na: public API only, no HTML scraping. The app discovers candidate channels from search terms, filters image-heavy channels, caches the normalized image feed locally for 12 hours, and treats image licenses as unknown unless a source explicitly says otherwise.
 - SomaFM: live background radio streams. This is commercial-free, listener-supported radio, suitable for non-commercial prototyping. The app randomizes between Digitalis, SF 10-33, n5MD Radio, and Synphaera Radio, using official 128 kbps MP3 direct streams with alternate SomaFM servers as fallback.
+- Independent radio streams: Kaaosradio Chiptune (Helsinki), AudioBook Radio (UK spoken word), Retreat Radio (Malmo), Experimental Madrid (radio.co), Ancient FM (mediaeval and renaissance), and New Sounds by WQXR (MP3 with AAC fallback). Only HTTPS streams qualify because the site itself is served over HTTPS and browsers block mixed-content audio.
 
 ## Good Next Sources
 
@@ -38,3 +39,8 @@ This project currently uses keyless, browser-friendly sources first, so the app 
 - https://somafm.com/sf1033/directstreamlinks.html
 - https://somafm.com/n5md/directstreamlinks.html
 - https://somafm.com/synphaera/directstreamlinks.html
+- https://kaaosradio.fi/
+- https://audiobookradio.net/
+- https://www.retreatradio.net/
+- https://www.ancientfm.com/
+- https://www.wqxr.org/streams/

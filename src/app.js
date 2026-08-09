@@ -54,6 +54,33 @@ const RADIO_STATIONS = [
       "https://ice3.somafm.com/synphaera-128-mp3",
     ],
   },
+  {
+    name: "Kaaosradio Chiptune",
+    streams: ["https://kaaosradio.fi:8001/chip"],
+  },
+  {
+    name: "AudioBook Radio",
+    streams: ["https://audiobookradio.out.airtime.pro/audiobookradio_a"],
+  },
+  {
+    name: "Retreat Radio",
+    streams: ["https://retreatradio.out.airtime.pro/retreatradio_b"],
+  },
+  {
+    name: "Experimental Madrid",
+    streams: ["https://streamer.radio.co/sd6131729c/listen"],
+  },
+  {
+    name: "Ancient FM",
+    streams: ["https://mediaserv73.live-streams.nl:18058/stream"],
+  },
+  {
+    name: "New Sounds (WQXR)",
+    streams: [
+      "https://q2stream.wqxr.org/q2",
+      "https://q2stream.wqxr.org/q2.aac",
+    ],
+  },
 ];
 
 const SEARCH_QUERIES = [
@@ -404,7 +431,7 @@ function setMusicButtonState(isPlaying) {
     "aria-label",
     isPlaying ? `Pause ${station.name}` : `Start ${station.name}`,
   );
-  musicButton.setAttribute("title", `SomaFM: ${station.name}`);
+  musicButton.setAttribute("title", `Radio: ${station.name}`);
   musicButton.setAttribute("aria-pressed", String(isPlaying));
   radioRandomButton.setAttribute("title", `Random radio station from ${station.name}`);
 }
