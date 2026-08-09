@@ -67,6 +67,10 @@ const RADIO_STATIONS = [
     streams: ["https://retreatradio.out.airtime.pro/retreatradio_b"],
   },
   {
+    name: "Experimental Madrid",
+    streams: ["https://streamer.radio.co/sd6131729c/listen"],
+  },
+  {
     name: "Ancient FM",
     streams: ["https://mediaserv73.live-streams.nl:18058/stream"],
   },
@@ -120,6 +124,7 @@ const arenaFallbackItems = [
 
 let activeStationIndex = randomInt(0, RADIO_STATIONS.length - 1);
 let activeStreamIndex = 0;
+let stationHopCount = 0;
 let activeFeedName = "classic";
 let pointerStart = null;
 let suppressDeckClickUntil = 0;
@@ -261,6 +266,9 @@ function bindEvents() {
     switchRadioStation();
   });
   ambientAudio.addEventListener("error", useNextMusicStream);
+  ambientAudio.addEventListener("playing", () => {
+    stationHopCount = 0;
+  });
   splashScreen?.addEventListener("click", startExperience);
   splashScreen?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -458,7 +466,17 @@ async function switchRadioStation() {
 
 function useNextMusicStream() {
   const station = RADIO_STATIONS[activeStationIndex];
+  const wantsMusic = musicButton.classList.contains("is-playing");
+
   if (activeStreamIndex >= station.streams.length - 1) {
+    if (wantsMusic && stationHopCount < RADIO_STATIONS.length - 1) {
+      stationHopCount += 1;
+      console.warn("Radio station failed, trying another", station.name);
+      setActiveStation(randomOtherIndex(activeStationIndex, RADIO_STATIONS.length));
+      ambientAudio.play().then(() => setMusicButtonState(true)).catch(() => {});
+      return;
+    }
+
     setMusicButtonState(false);
     return;
   }
@@ -466,7 +484,7 @@ function useNextMusicStream() {
   activeStreamIndex += 1;
   ambientAudio.src = station.streams[activeStreamIndex];
 
-  if (musicButton.classList.contains("is-playing")) {
+  if (wantsMusic) {
     ambientAudio.play().catch(() => setMusicButtonState(false));
   }
 }
