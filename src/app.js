@@ -132,13 +132,18 @@ const sourceState = {
   artic: { page: randomInt(1, 80), label: "Art Institute of Chicago" },
   cleveland: { skip: randomInt(0, 18000), label: "Cleveland Museum of Art" },
   met: { cursor: 0, ids: [], label: "The Met" },
-  nga: { cursor: 0, label: "National Gallery of Art" },
   smk: { total: null, label: "SMK, Copenhagen" },
   vam: { maxPage: 30, label: "Victoria and Albert Museum" },
 };
 
+// "painting" and "drawing" terms are repeated on purpose: a gentle bias
+// toward paintings and drawings without excluding other kinds of works.
 const VAM_QUERIES = [
   "painting",
+  "painting",
+  "painting",
+  "drawing",
+  "watercolour",
   "poster",
   "textile",
   "ceramics",
@@ -170,18 +175,6 @@ const feedState = {
 };
 
 const ngaSeeds = [
-  {
-    id: "nga-lucia-bonasoni-garzoni",
-    title: "Lucia Bonasoni Garzoni",
-    artist: "Lavinia Fontana",
-    date: "c. 1590",
-    medium: "Oil on canvas",
-    source: "National Gallery of Art",
-    sourceUrl: "https://www.nga.gov/artworks",
-    imageUrl:
-      "https://api.nga.gov/iiif/3b5b7b90-f466-48fa-8202-bf5a4eb17dd2/full/!1200,1200/0/default.jpg",
-    license: "Public domain",
-  },
   {
     id: "nga-open-access-sample-1",
     title: "Open Access study",
@@ -498,7 +491,6 @@ async function loadMoreClassicArt() {
       fetchMet(),
       fetchSmk(),
       fetchVam(),
-      fetchNgaSeeds(),
     ]);
 
     const nextArtworks = batches
@@ -805,7 +797,14 @@ async function fetchCleveland() {
   const skip = sourceState.cleveland.skip;
   sourceState.cleveland.skip += LOAD_SIZE + randomInt(12, 44);
 
-  const url = `https://openaccess-api.clevelandart.org/api/artworks/?cc0=1&has_image=1&limit=${LOAD_SIZE}&skip=${skip}&fields=${fields}`;
+  // Roughly two loads in five ask Cleveland for paintings or drawings only,
+  // as part of the gentle painting/drawing bias. Their filtered subsets are
+  // smaller, so the random skip is scaled down for those requests.
+  const typeBias = Math.random();
+  const typeFilter = typeBias < 0.25 ? "&type=Painting" : typeBias < 0.4 ? "&type=Drawing" : "";
+  const biasedSkip = typeFilter ? Math.min(skip, randomInt(0, 2500)) : skip;
+
+  const url = `https://openaccess-api.clevelandart.org/api/artworks/?cc0=1&has_image=1&limit=${LOAD_SIZE}&skip=${biasedSkip}&fields=${fields}${typeFilter}`;
   const payload = await fetchJson(url);
 
   return payload.data
@@ -825,7 +824,18 @@ async function fetchCleveland() {
 
 async function fetchMet() {
   if (sourceState.met.ids.length === 0) {
-    const terms = ["painting", "portrait", "landscape", "flowers", "japan", "textile"];
+    const terms = [
+      "painting",
+      "painting",
+      "painting",
+      "drawing",
+      "watercolor",
+      "portrait",
+      "landscape",
+      "flowers",
+      "japan",
+      "textile",
+    ];
     const term = terms[randomInt(0, terms.length - 1)];
     const searchUrl = `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&isPublicDomain=true&q=${encodeURIComponent(
       term,
@@ -916,12 +926,6 @@ async function fetchVam() {
       thumbnailUrl: record._images?._primary_thumbnail,
       license: "© Victoria and Albert Museum",
     }));
-}
-
-async function fetchNgaSeeds() {
-  const item = ngaSeeds[sourceState.nga.cursor % ngaSeeds.length];
-  sourceState.nga.cursor += 1;
-  return [item];
 }
 
 function renderArtworks(feedName, nextArtworks) {
@@ -1370,7 +1374,6 @@ function resetSourceState() {
   sourceState.cleveland.skip = randomInt(0, 18000);
   sourceState.met.cursor = 0;
   sourceState.met.ids = [];
-  sourceState.nga.cursor = 0;
 }
 
 async function fetchJson(url, timeoutMs = 12000) {
